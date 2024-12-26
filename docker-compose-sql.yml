@@ -1,0 +1,24 @@
+version: "'3.8'"
+services:
+    db:
+        image: mysql:8.4.2
+        container_name: mysql-container
+        restart: on-failure
+        command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci --innodb-buffer-pool-size=10G --innodb_flush_method=O_DIRECT 
+        environment:
+            - MYSQL_DATABASE=${DB_NAME}
+            - MYSQL_ROOT_PASSWORD=${DB_PASSWORD}
+        ports:
+            - '${HOST_MYSQL_PORT}:3306'
+        volumes:
+            - ${HOST_MYSQL_DATA_DIR}:/var/lib/mysql
+            - ./mysql_settings/my.cnf:/etc/mysql/conf.d/my.cnf
+            - ./mysql_settings/sql-scripts:/docker-entrypoint-initdb.d
+        healthcheck:
+            test: mysqladmin ping -h 127.0.0.1 -u $$DB_USER --password=$$DB_PASSWORD
+            start_period: 5s
+            interval: 5s
+            timeout: 5s
+            retries: 55
+
+

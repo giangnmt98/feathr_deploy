@@ -1,0 +1,42 @@
+version: '3.8'
+
+services:
+  redis-node-1:
+    image: redis:latest
+    container_name: redis_node_1
+    command: ["redis-server", "--cluster-enabled", "yes", "--cluster-config-file", "/data/nodes.conf", "--cluster-node-timeout", "5000", "--appendonly", "yes", "--requirepass", "password", "--masterauth", "password"]
+    ports:
+      - "6382:6379"
+      - "16379:16379"
+    volumes:
+      - ./data/redis-node-1:/data
+    networks:
+      - redis-cluster-net
+
+  redis-node-2:
+    image: redis:latest
+    container_name: redis_node_2
+    command: ["redis-server", "--cluster-enabled", "yes", "--cluster-config-file", "/data/nodes.conf", "--cluster-node-timeout", "5000", "--appendonly", "yes", "--requirepass", "password", "--masterauth", "password"]
+    ports:
+      - "6380:6379"
+      - "16380:16379"
+    volumes:
+      - ./data/redis-node-2:/data
+    networks:
+      - redis-cluster-net
+
+  redis-node-3:
+    image: redis:latest
+    container_name: redis_node_3
+    command: ["redis-server", "--cluster-enabled", "yes", "--cluster-config-file", "/data/nodes.conf", "--cluster-node-timeout", "5000", "--appendonly", "yes", "--requirepass", "password", "--masterauth", "password"]
+    ports:
+      - "6381:6379"
+      - "16381:16379"
+    volumes:
+      - ./data/redis-node-3:/data
+    networks:
+      - redis-cluster-net
+
+networks:
+  redis-cluster-net:
+    driver: bridge
