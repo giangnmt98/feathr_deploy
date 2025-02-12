@@ -71,39 +71,22 @@ setup(
         "tqdm<=4.64.1",
         "pyapacheatlas<=0.14.0",
         "pyhocon<=0.3.59",
-        "pandavro",
         "pyyaml<=6.0",
         "Jinja2<=3.1.2",
         "pyarrow<=11.0.0",
-        "pyspark<=3.3.2,>=3.1.2",  # TODO upgrade the version once pyspark publishes new release to resolve `AttributeError: module 'numpy' has no attribute 'bool'`
+        "pyspark==3.4.1",  # TODO upgrade the version once pyspark publishes new release to resolve `AttributeError: module 'numpy' has no attribute 'bool'`
         "python-snappy<=0.6.1",
-        "deltalake>=0.6.2",
         "graphlib_backport<=1.0.3",
         "protobuf<=3.19.4,>=3.0.0",
         "confluent-kafka",
-        "databricks-cli<=0.17.3",
-        "avro",
-        "azure-storage-file-datalake<=12.5.0",
-        "azure-synapse-spark",
         # Synapse's aiohttp package is old and does not work with Feathr. We pin to a newer version here.
         "aiohttp==3.8.3",
-        # fixing Azure Machine Learning authentication issue per https://stackoverflow.com/a/72262694/3193073
-        "azure-identity>=1.8.0",
-        "azure-keyvault-secrets<=4.6.0",
-        # In 1.23.0, azure-core is using ParamSpec which might cause issues in some of the databricks runtime.
-        # see this for more details:
-        # https://github.com/Azure/azure-sdk-for-python/pull/22891
-        # using a version lower than that to workaround this issue.
-        "azure-core<=1.22.1",
-        # azure-core 1.22.1 is dependent on msrest==0.6.21, if an environment(AML) has a different version of azure-core (say 1.24.0),
-        # it brings a different version of msrest(0.7.0) which is incompatible with azure-core==1.22.1. Hence we need to pin it.
-        # See this for more details: https://github.com/Azure/azure-sdk-for-python/issues/24765
         "msrest<=0.6.21",
         "typing_extensions>=4.2.0",
         "kafka-python",
         "ipython",  # for chat in notebook
-        "revChatGPT",
         "numpy==1.26.4",
+        "psutil"
     ],
     tests_require=[  # TODO: This has been depricated
         "pytest",

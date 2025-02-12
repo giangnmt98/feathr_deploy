@@ -1,19 +1,18 @@
-from copy import deepcopy
-from datetime import datetime
 import json
 import os
+import time
+from copy import deepcopy
+from datetime import datetime
 from pathlib import Path
 from shlex import split
-from subprocess import STDOUT, Popen
-import time
+from subprocess import Popen
 from typing import Any, Dict, List, Optional
 
+from feathr.constants import OUTPUT_PATH_TAG
+from feathr.spark_provider._abc import SparkJobLauncher
+from feathr.version import get_maven_artifact_fullname
 from loguru import logger
 from pyspark import *
-
-from feathr.constants import OUTPUT_PATH_TAG
-from feathr.version import get_maven_artifact_fullname
-from feathr.spark_provider._abc import SparkJobLauncher
 
 
 class _FeathrLocalSparkJobLauncher(SparkJobLauncher):
@@ -120,7 +119,7 @@ class _FeathrLocalSparkJobLauncher(SparkJobLauncher):
                 logger.info(f"Creating python files in {python_files}")
                 spark_args.append(python_files[0])
         else:
-            
+
             if not python_files:
                 # This is a JAR job
                 spark_args.extend(["--packages", maven_dependency, "--class", main_class_name, main_jar_path])
@@ -135,10 +134,7 @@ class _FeathrLocalSparkJobLauncher(SparkJobLauncher):
         if arguments:
             spark_args.extend(arguments)
 
-
-
         cmd = " ".join(spark_args)
-
 
         log_append = open(f"{self.log_path}_{self.spark_job_num}.txt", "a")
         # remove stderr=STDOUT per https://stackoverflow.com/a/40046887
@@ -178,7 +174,7 @@ class _FeathrLocalSparkJobLauncher(SparkJobLauncher):
         start_time = time.time()
         retry = self.retry
 
-        log_read = open(f"{self.log_path}_{self.spark_job_num-1}.txt", "r")
+        log_read = open(f"{self.log_path}_{self.spark_job_num - 1}.txt", "r")
         while proc.poll() is None and (((timeout_seconds is None) or (time.time() - start_time < timeout_seconds))):
             time.sleep(1)
             try:
@@ -197,7 +193,8 @@ class _FeathrLocalSparkJobLauncher(SparkJobLauncher):
                     print("_", end="")
                 else:
                     print(">", end="")
-                    if last_line.__contains__("Feathr Pyspark job completed") or last_line.__contains__("Feathr mainWithPreprocessedDataFrame job completed"):
+                    if last_line.__contains__("Feathr Pyspark job completed") or last_line.__contains__(
+                            "Feathr mainWithPreprocessedDataFrame job completed"):
                         logger.info(f"Pyspark job Completed")
                         proc.terminate()
             except IndexError as e:
@@ -271,7 +268,23 @@ class _FeathrLocalSparkJobLauncher(SparkJobLauncher):
         return self.job_tags
 
     def _init_args(self, job_name: str, confs: Dict[str, str]) -> List[str]:
+        try:
+            import psutil
+        except ImportError as e:
+            raise ImportError(
+                "The 'psutil' package is required but not installed. Please install it using 'pip install psutil'.") from e
+        import os
+
         logger.info(f"Spark job: {job_name} is running on local spark with master: {self.master}.")
+
+        # Get system resources
+        total_cores = os.cpu_count()
+        total_memory = psutil.virtual_memory().total // (1024 * 1024)  # in MB
+
+        driver_cores = max(1, int(total_cores * 0.7))
+        executor_cores = max(1, int(total_cores * 0.8))
+        memory_limit = max(1024, int(total_memory * 0.8))  # Minimum 1GB
+
         args = [
             "spark-submit",
             "--master",
@@ -282,6 +295,18 @@ class _FeathrLocalSparkJobLauncher(SparkJobLauncher):
             "spark.hadoop.fs.wasbs.impl=org.apache.hadoop.fs.azure.NativeAzureFileSystem",
             "--conf",
             "spark.hadoop.fs.wasbs=org.apache.hadoop.fs.azure.NativeAzureFileSystem",
+            "--conf",
+            f"spark.driver.cores={driver_cores}",
+            "--conf",
+            f"spark.executor.cores={executor_cores}",
+            "--conf",
+            f"spark.driver.memory={memory_limit}m",
+            "--conf",
+            f"spark.executor.memory={memory_limit}m",
+            "--conf",
+            f"spark.sql.shuffle.partitions={total_cores}",
+            "--conf",
+            "spark.driver.maxResultSize=5G",
         ]
 
         for k, v in confs.items():
@@ -339,10 +364,11 @@ class _FeathrLocalSparkJobLauncher(SparkJobLauncher):
         # packages.append("com.github.changvvb:jackson-module-caseclass_2.12:1.1.1")
         # packages.append("com.azure.cosmos.spark:azure-cosmos-spark_3-1_2-12:4.11.1")
         # packages.append("org.eclipse.jetty:jetty-util:9.3.24.v20180605")
-        packages.append("commons-io:commons-io:2.6") 
+        packages.append("commons-io:commons-io:2.6")
         # packages.append("com.microsoft.azure:azure-storage:8.6.4")
         # packages.append("mysql:mysql-connector-java:8.0.32")
         # packages.append("org.postgresql:postgresql:42.3.4")
         # packages.append("io.minio:spark-select_2.11:2.1")
         # packages.append("org.apache.hadoop:hadoop-aws:3.3.2")
         return ",".join(packages)
+
