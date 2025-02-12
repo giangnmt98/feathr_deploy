@@ -61,7 +61,7 @@ setup(
     # consider
     install_requires=[
         "click<=8.1.3",
-        "py4j==0.10.9.5",
+        "py4j==0.10.9.7",
         "loguru<=0.6.0",
         "pandas",
         "redis<=4.4.0",
