@@ -87,6 +87,7 @@ class _FeathrLocalSparkJobLauncher(SparkJobLauncher):
         cfg = configuration.copy() if configuration else {}
         plus_packages = cfg.pop('spark.jars.plus.packages', ",".join([]))
         maven_dependency = f"{cfg.pop('spark.jars.packages', self.packages)},{get_maven_artifact_fullname()},{plus_packages}"
+
         spark_args = self._init_args(job_name=job_name, confs=cfg)
         # Add additional repositories
         spark_args.extend(
@@ -268,23 +269,6 @@ class _FeathrLocalSparkJobLauncher(SparkJobLauncher):
         return self.job_tags
 
     def _init_args(self, job_name: str, confs: Dict[str, str]) -> List[str]:
-        try:
-            import psutil
-        except ImportError as e:
-            raise ImportError(
-                "The 'psutil' package is required but not installed. Please install it using 'pip install psutil'.") from e
-        import os
-
-        logger.info(f"Spark job: {job_name} is running on local spark with master: {self.master}.")
-
-        # Get system resources
-        total_cores = os.cpu_count()
-        total_memory = psutil.virtual_memory().total // (1024 * 1024)  # in MB
-
-        driver_cores = max(1, int(total_cores * 0.7))
-        executor_cores = max(1, int(total_cores * 0.8))
-        memory_limit = max(1024, int(total_memory * 0.8))  # Minimum 1GB
-
         args = [
             "spark-submit",
             "--master",
@@ -295,18 +279,6 @@ class _FeathrLocalSparkJobLauncher(SparkJobLauncher):
             "spark.hadoop.fs.wasbs.impl=org.apache.hadoop.fs.azure.NativeAzureFileSystem",
             "--conf",
             "spark.hadoop.fs.wasbs=org.apache.hadoop.fs.azure.NativeAzureFileSystem",
-            "--conf",
-            f"spark.driver.cores={driver_cores}",
-            "--conf",
-            f"spark.executor.cores={executor_cores}",
-            "--conf",
-            f"spark.driver.memory={memory_limit}m",
-            "--conf",
-            f"spark.executor.memory={memory_limit}m",
-            "--conf",
-            f"spark.sql.shuffle.partitions={total_cores}",
-            "--conf",
-            "spark.driver.maxResultSize=5G",
         ]
 
         for k, v in confs.items():

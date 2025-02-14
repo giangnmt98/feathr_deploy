@@ -103,7 +103,6 @@ setup(
         "kafka-python",
         "ipython",  # for chat in notebook
         "numpy==1.26.4",
-        "psutil"
     ],
     tests_require=[  # TODO: This has been depricated
         "pytest",
