@@ -173,23 +173,15 @@ class _FeathrLocalSparkJobLauncher(SparkJobLauncher):
 
         proc = self.latest_spark_proc
         start_time = time.time()
-        retry = self.retry
+        retry_threshold = self.retry * self.retry_sec  # Tổng thời gian chờ không có log mới, ví dụ: 5 * 30 = 150 giây
+        last_log_time = start_time  # Thời điểm log cập nhật cuối cùng
 
         log_read = open(f"{self.log_path}_{self.spark_job_num - 1}.txt", "r")
         while proc.poll() is None and (((timeout_seconds is None) or (time.time() - start_time < timeout_seconds))):
             time.sleep(1)
             try:
                 last_line = log_read.readlines()[-1]
-                if retry < 1:
-                    logger.warning(
-                        f"Spark job has hang for {self.retry * self.retry_sec} seconds. latest msg is {last_line}. \
-                            Please check {log_read.name}"
-                    )
-                    if self.clean_up:
-                        self._clean_up()
-                        proc.wait()
-                    break
-                retry = self.retry
+                last_log_time = time.time()  # Cập nhật thời điểm log mới nhất khi có dòng mới
                 if last_line == []:
                     print("_", end="")
                 else:
@@ -200,8 +192,17 @@ class _FeathrLocalSparkJobLauncher(SparkJobLauncher):
                         proc.terminate()
             except IndexError as e:
                 print("x", end="")
-                time.sleep(self.retry_sec)
-                retry -= 1
+                elapsed_since_last_log = time.time() - last_log_time
+                if elapsed_since_last_log > retry_threshold:
+                    logger.warning(
+                        f"Spark job has not updated log for {int(elapsed_since_last_log)} seconds. "
+                        f"Latest msg is '{last_line if 'last_line' in locals() else 'None'}'. "
+                        f"Please check {log_read.name}"
+                    )
+                    if self.clean_up:
+                        self._clean_up()
+                        proc.wait()
+                    break
 
         job_duration = time.time() - start_time
         log_read.close()
@@ -225,13 +226,6 @@ class _FeathrLocalSparkJobLauncher(SparkJobLauncher):
                 logger.error(contents)
             return False
         elif proc.returncode == 143:
-            # Handle the return code 143 separately.
-            # Normally, the Popen method will return a handle that we can poll, and the poll result will be "None" if it's still running, and will be other values if the subprocess is finished.
-            # However when calling `Popen` with `spark-submit`, for some reason, the poll result will always return "None", and the process will hang there forever
-            # due to this issue, additional handling is needed where we detect the output logs and see if the job is finished.
-            # If the logs gives out hint that the job is finished, even the poll result is None (indicating the process is still running) we will still terminate it.
-            # by calling `proc.terminate()`
-            # if the process is terminated with this way, the return code will be 143. We assume this will still be a successful run.
             logger.info(f"Spark job with pid {self.latest_spark_proc.pid} finished in: {int(job_duration)} seconds.")
             return True
         else:
